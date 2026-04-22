@@ -41,14 +41,14 @@ def get_ai_response(user_input, api_key, hf_token):
     if api_key:
         try:
             genai.configure(api_key=api_key)
-            # تجربة استدعاء الموديل بدون كلمة models/ وبدون إضافات لتقليل احتمالية الخطأ 404
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            # هنكتب الاسم الكامل للموديل بالشكل ده
+            model = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
             response = model.generate_content(user_input)
             return response.text, "Gemini"
         except Exception as e:
-            # محاولة أخيرة باستخدام gemini-pro إذا فشل flash
+            # لو فشل، جرب الموديل القديم المستقر كخطة بديلة
             try:
-                model = genai.GenerativeModel("gemini-pro")
+                model = genai.GenerativeModel(model_name="models/gemini-pro")
                 response = model.generate_content(user_input)
                 return response.text, "Gemini Pro"
             except:
