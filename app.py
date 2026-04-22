@@ -2,97 +2,76 @@ import streamlit as st
 import google.generativeai as genai
 import requests
 
-# 1. إعدادات الصفحة بتصميم نظيف
+# إعدادات الصفحة
 st.set_page_config(page_title="AI Chatbot", layout="centered")
-
-# تحسين الخط وشكل الواجهة (Apple-style simplicity)
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
-    }
-    .stTextInput > div > div > input {
-        border-radius: 8px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
 st.title("🤖 AI Chatbot")
 
-# 2. الإعدادات في الشريط الجانبي
+# الإعدادات في الشريط الجانبي
 with st.sidebar:
     st.subheader("⚙️ Settings")
-    api_key = st.text_input("Enter Gemini API Key:", type="password", key="api_key_input")
-    hf_token = st.text_input("HuggingFace Token (Optional):", type="password", key="hf_token_input")
+    api_key = st.text_input("Enter Gemini API Key:", type="password")
+    hf_token = st.text_input("HuggingFace Token (Optional):", type="password")
     
-    st.divider()
-    if st.button("🗑️ Clear Chat History"):
+    if st.button("🗑️ Clear Chat"):
         st.session_state.messages = []
         st.rerun()
 
-# 3. تهيئة الجلسة (Session State)
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 4. دالة الاستعلام من HuggingFace (رابط محدث)
+# دالة HuggingFace برابط الـ Inference API الصحيح
 def query_huggingface(prompt, hf_token):
     try:
         headers = {"Authorization": f"Bearer {hf_token}"} if hf_token else {}
-        # استخدام موديل Mistral v0.3 أو Zephyr لأنهما أكثر استقراراً في الـ Free API
-        API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
-        payload = {"inputs": prompt, "parameters": {"max_new_tokens": 500}}
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=15)
+        # تم تغيير الرابط للصيغة الأكثر استقراراً
+        API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-v0.1"
+        payload = {"inputs": f"<s>[INST] {prompt} [/INST]", "parameters": {"max_new_tokens": 250}}
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=10)
         
         if response.status_code == 200:
-            result = response.json()
-            # معالجة استجابة HF لأنها ترجع قائمة
-            if isinstance(result, list) and "generated_text" in result[0]:
-                return result[0]["generated_text"]
-            return str(result)
+            return response.json()[0]['generated_text']
         else:
-            return f"HuggingFace Error: {response.status_code} - {response.text}"
+            return f"HF Error {response.status_code}: Please check token or model status."
     except Exception as e:
-        return f"HF Connection Failed: {str(e)}"
+        return f"HF Exception: {str(e)}"
 
-# 5. دالة الحصول على الرد (المنطق الرئيسي)
+# دالة الاستجابة الرئيسية
 def get_ai_response(user_input, api_key, hf_token):
-    # محاولة تشغيل Gemini أولاً
     if api_key:
         try:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(model_name="models/gemini-1.5-flash-latest")
+            # تجربة استدعاء الموديل بدون كلمة models/ وبدون إضافات لتقليل احتمالية الخطأ 404
+            model = genai.GenerativeModel("gemini-1.5-flash")
             response = model.generate_content(user_input)
-            return response.text, "Gemini (✓)"
+            return response.text, "Gemini"
         except Exception as e:
-            st.error(f"Gemini Error: {str(e)}")
+            # محاولة أخيرة باستخدام gemini-pro إذا فشل flash
+            try:
+                model = genai.GenerativeModel("gemini-pro")
+                response = model.generate_content(user_input)
+                return response.text, "Gemini Pro"
+            except:
+                st.error(f"Gemini API Error: {str(e)}")
     
-    # الـ Fallback في حالة فشل Gemini أو عدم وجود مفتاح
-    st.warning("Switching to HuggingFace fallback...")
-    hf_response = query_huggingface(user_input, hf_token)
-    return hf_response, "HuggingFace (Fallback)"
+    st.warning("Switching to Fallback...")
+    return query_huggingface(user_input, hf_token), "HuggingFace"
 
-# 6. عرض المحادثة
+# عرض الشات
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        st.write(message["content"])
 
-# 7. مدخلات المستخدم
-if not api_key:
-    st.info("👈 Please enter your Gemini API key in the sidebar to start.")
-else:
-    if user_input := st.chat_input("How can I help you today?"):
-        # إضافة رسالة المستخدم للتايخ والعرض
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
+if user_input := st.chat_input("Write here..."):
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.write(user_input)
 
-        # جلب رد الذكاء الاصطناعي
-        with st.chat_message("assistant"):
-            with st.spinner("Processing..."):
-                full_response, model_used = get_ai_response(user_input, api_key, hf_token)
-                st.markdown(full_response)
-                st.caption(f"Source: {model_used}")
-        
-        # إضافة رد المساعد للتاريخ
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
+    with st.chat_message("assistant"):
+        if not api_key:
+            st.warning("Please provide an API Key first.")
+        else:
+            res, source = get_ai_response(user_input, api_key, hf_token)
+            st.write(res)
+            st.caption(f"Source: {source}")
+            st.session_state.messages.append({"role": "assistant", "content": res})
