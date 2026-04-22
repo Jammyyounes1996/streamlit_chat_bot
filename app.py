@@ -61,7 +61,7 @@ def get_ai_response(user_input, api_key, hf_token):
     if api_key:
         try:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel(model_name="models/gemini-1.5-flash-latest")
             response = model.generate_content(user_input)
             return response.text, "Gemini (✓)"
         except Exception as e:
