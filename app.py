@@ -47,7 +47,7 @@ def query_huggingface(prompt, hf_token):
 # Get response
 def get_response(user_input, api_key, hf_token):
     try:
-        model = genai.GenerativeModel("gemini-pro")
+        model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(user_input)
         st.session_state.model_name = "Gemini (✓)"
         return response.text
