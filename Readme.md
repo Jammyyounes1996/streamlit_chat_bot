@@ -1,7 +1,6 @@
 **AI Chatbot**
 
-Chat app with Gemini API (primary) + HuggingFace fallback.
-Setup
+Chat app with Gemini API (primary) 
 
 Get free Gemini API key from Google AI Studio
 Run: pip install -r requirements.txt
